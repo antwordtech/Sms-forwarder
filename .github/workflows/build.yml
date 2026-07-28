@@ -13,6 +13,26 @@ jobs:
           flutter-version: '3.44.8'
       - name: Generate Android platform files
         run: flutter create --platforms=android --org com.antwordtech --project-name sms_forwarder .
+      - name: Fix JVM target consistency
+        run: |
+          cat >> android/build.gradle.kts << 'EOF'
+
+          subprojects {
+              afterEvaluate {
+                  extensions.findByType<com.android.build.gradle.BaseExtension>()?.apply {
+                      compileOptions {
+                          sourceCompatibility = JavaVersion.VERSION_11
+                          targetCompatibility = JavaVersion.VERSION_11
+                      }
+                  }
+                  tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+                      kotlinOptions {
+                          jvmTarget = "11"
+                      }
+                  }
+              }
+          }
+          EOF
       - name: Add SMS permissions
         run: |
           sed -i '/<application/i\    <uses-permission android:name="android.permission.RECEIVE_SMS"/>\n    <uses-permission android:name="android.permission.READ_SMS"/>\n    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
