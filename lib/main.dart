@@ -1,10 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:another_telephony/telephony.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
-final Telephony telephony = Telephony.instance;
 
 void main() {
   runApp(const MyApp());
@@ -31,13 +26,12 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final TextEditingController _urlController = TextEditingController();
-  String _status = 'Starting...';
+  String _status = 'Ready';
 
   @override
   void initState() {
     super.initState();
     _loadSavedUrl();
-    _initSms();
   }
 
   Future<void> _loadSavedUrl() async {
@@ -53,51 +47,6 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _status = 'Server URL saved';
     });
-  }
-
-  Future<void> _initSms() async {
-    bool? granted = await telephony.requestPhoneAndSmsPermissions;
-    if (granted != true) {
-      setState(() {
-        _status = 'SMS permission denied';
-      });
-      return;
-    }
-
-    telephony.listenIncomingSms(
-      onNewMessage: (SmsMessage message) {
-        _forwardSms(message);
-      },
-      listenInBackground: false,
-    );
-
-    setState(() {
-      _status = 'Listening for SMS';
-    });
-  }
-
-  Future<void> _forwardSms(SmsMessage message) async {
-    final prefs = await SharedPreferences.getInstance();
-    final url = prefs.getString('server_url');
-    if (url == null || url.isEmpty) return;
-
-    try {
-      await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'sender': message.address,
-          'body': message.body,
-        }),
-      );
-      setState(() {
-        _status = 'Forwarded message from ${message.address}';
-      });
-    } catch (e) {
-      setState(() {
-        _status = 'Failed to forward: $e';
-      });
-    }
   }
 
   @override
