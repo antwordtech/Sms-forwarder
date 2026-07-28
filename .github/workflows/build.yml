@@ -12,7 +12,7 @@ jobs:
         with:
           flutter-version: '3.44.8'
       - name: Generate Android platform files
-        run: flutter create --platforms=android --org com.antwordtech .
+        run: flutter create --platforms=android --org com.antwordtech --project-name sms_forwarder .
       - name: Add SMS permissions
         run: |
           sed -i '/<application/i\    <uses-permission android:name="android.permission.RECEIVE_SMS"/>\n    <uses-permission android:name="android.permission.READ_SMS"/>\n    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
