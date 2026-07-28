@@ -32,6 +32,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final TextEditingController _urlController = TextEditingController();
   String _status = 'Starting...';
+  int _messagesSeen = 0;
 
   @override
   void initState() {
@@ -56,33 +57,50 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _initSms() async {
-    bool? granted = await telephony.requestPhoneAndSmsPermissions;
-    if (granted != true) {
+    try {
+      setState(() => _status = 'Requesting permission...');
+      bool? granted = await telephony.requestPhoneAndSmsPermissions;
+
+      setState(() => _status = 'Permission result: $granted');
+
+      if (granted != true) {
+        setState(() => _status = 'SMS permission denied (granted=$granted)');
+        return;
+      }
+
+      setState(() => _status = 'Setting up SMS listener...');
+
+      telephony.listenIncomingSms(
+        onNewMessage: (SmsMessage message) {
+          setState(() {
+            _messagesSeen++;
+          });
+          _forwardSms(message);
+        },
+        listenInBackground: false,
+      );
+
       setState(() {
-        _status = 'SMS permission denied';
+        _status = 'Listening for SMS (setup complete)';
       });
-      return;
+    } catch (e) {
+      setState(() {
+        _status = 'ERROR during SMS setup: $e';
+      });
     }
-
-    telephony.listenIncomingSms(
-      onNewMessage: (SmsMessage message) {
-        _forwardSms(message);
-      },
-      listenInBackground: false,
-    );
-
-    setState(() {
-      _status = 'Listening for SMS';
-    });
   }
 
   Future<void> _forwardSms(SmsMessage message) async {
     final prefs = await SharedPreferences.getInstance();
     final url = prefs.getString('server_url');
-    if (url == null || url.isEmpty) return;
+    if (url == null || url.isEmpty) {
+      setState(() => _status = 'Got SMS but no URL saved!');
+      return;
+    }
 
     try {
-      await http.post(
+      setState(() => _status = 'Sending to server...');
+      final response = await http.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -91,7 +109,7 @@ class _HomePageState extends State<HomePage> {
         }),
       );
       setState(() {
-        _status = 'Forwarded message from ${message.address}';
+        _status = 'Forwarded! Server responded: ${response.statusCode}';
       });
     } catch (e) {
       setState(() {
@@ -125,6 +143,8 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 24),
             Text('Status: $_status'),
+            const SizedBox(height: 12),
+            Text('Messages received by listener: $_messagesSeen'),
           ],
         ),
       ),
